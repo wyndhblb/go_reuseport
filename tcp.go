@@ -142,3 +142,72 @@ func NewReusablePortListener(proto, addr string) (l net.Listener, err error) {
 
 	return l, err
 }
+
+
+// NewReusablePortListenerWithBuffer returns net.FileListener that created from
+// a file discriptor for a socket with SO_REUSEPORT option and read/write buffers sizes.
+func NewReusablePortListenerWithBuffer(proto, addr string, readBufferSize int, writeBufferSize int) (l net.Listener, err error) {
+	var (
+		soType, fd int
+		file       *os.File
+		sockaddr   syscall.Sockaddr
+	)
+
+	if sockaddr, soType, err = getSockaddr(proto, addr); err != nil {
+		return nil, err
+	}
+
+	syscall.ForkLock.RLock()
+	if fd, err = syscall.Socket(soType, syscall.SOCK_STREAM, syscall.IPPROTO_TCP); err != nil {
+		syscall.ForkLock.RUnlock()
+
+		return nil, err
+	}
+	syscall.ForkLock.RUnlock()
+
+	defer func() {
+		if err != nil {
+			syscall.Close(fd)
+		}
+	}()
+
+	if err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1); err != nil {
+		return nil, err
+	}
+
+	if err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, reusePort, 1); err != nil {
+		return nil, err
+	}
+
+	if readBufferSize > 0 {
+		if err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_RCVBUF, readBufferSize); err != nil {
+			return nil, err
+		}
+	}
+
+	if writeBufferSize > 0 {
+		if err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_SNDBUF, writeBufferSize); err != nil {
+			return nil, err
+		}
+	}
+
+	if err = syscall.Bind(fd, sockaddr); err != nil {
+		return nil, err
+	}
+
+	// Set backlog size to the maximum
+	if err = syscall.Listen(fd, listenerBacklogMaxSize); err != nil {
+		return nil, err
+	}
+
+	file = os.NewFile(uintptr(fd), getSocketFileName(proto, addr))
+	if l, err = net.FileListener(file); err != nil {
+		return nil, err
+	}
+
+	if err = file.Close(); err != nil {
+		return nil, err
+	}
+
+	return l, err
+}

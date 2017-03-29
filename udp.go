@@ -85,7 +85,7 @@ func determineUDPProto(proto string, ip *net.UDPAddr) (string, error) {
 }
 
 // NewReusablePortPacketConn returns net.FilePacketConn that created from
-// a file discriptor for a socket with SO_REUSEPORT option.
+// a file descriptor for a socket with SO_REUSEPORT option.
 func NewReusablePortPacketConn(proto, addr string) (l net.PacketConn, err error) {
 	var (
 		soType, fd int
@@ -121,6 +121,74 @@ func NewReusablePortPacketConn(proto, addr string) (l net.PacketConn, err error)
 	if err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, reusePort, 1); err != nil {
 		return nil, err
 	}
+
+	if err = syscall.Bind(fd, sockaddr); err != nil {
+		return nil, err
+	}
+
+	file = os.NewFile(uintptr(fd), getSocketFileName(proto, addr))
+	if l, err = net.FilePacketConn(file); err != nil {
+		return nil, err
+	}
+
+	if err = file.Close(); err != nil {
+		return nil, err
+	}
+
+	return l, err
+}
+
+
+// NewReusablePortPacketConnWithBuffer returns net.FilePacketConn that created from
+// a file descriptor for a socket with SO_REUSEPORT option as well as the buffer size set
+func NewReusablePortPacketConnWithBuffer(proto, addr string, readBufferSize int, writeBufferSize int) (l net.PacketConn, err error) {
+	var (
+		soType, fd int
+		file       *os.File
+		sockaddr   syscall.Sockaddr
+	)
+
+	if sockaddr, soType, err = getSockaddr(proto, addr); err != nil {
+		return nil, err
+	}
+
+	syscall.ForkLock.RLock()
+	fd, err = syscall.Socket(soType, syscall.SOCK_DGRAM, syscall.IPPROTO_UDP)
+	if err == nil {
+		syscall.CloseOnExec(fd)
+	}
+	syscall.ForkLock.RUnlock()
+	if err != nil {
+		syscall.Close(fd)
+		return nil, err
+	}
+
+	defer func() {
+		if err != nil {
+			syscall.Close(fd)
+		}
+	}()
+
+	if err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1); err != nil {
+		return nil, err
+	}
+
+	if err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, reusePort, 1); err != nil {
+		return nil, err
+	}
+
+	if readBufferSize > 0 {
+		if err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_RCVBUF, readBufferSize); err != nil {
+			return nil, err
+		}
+	}
+
+	if writeBufferSize > 0 {
+		if err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_SNDBUF, writeBufferSize); err != nil {
+			return nil, err
+		}
+	}
+
 
 	if err = syscall.Bind(fd, sockaddr); err != nil {
 		return nil, err

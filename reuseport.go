@@ -44,7 +44,17 @@ func Listen(proto, addr string) (l net.Listener, err error) {
 	return NewReusablePortListener(proto, addr)
 }
 
+// ListenWithBuffer is an alias for NewReusablePortListenerWithBuffer.
+func ListenWithBuffer(proto, addr string, readBuffer int, writeBuffer int) (l net.PacketConn, err error) {
+	return NewReusablePortListenerWithBuffer(proto, addr, readBuffer, writeBuffer)
+}
+
 // ListenPacket is an alias for NewReusablePortPacketConn.
 func ListenPacket(proto, addr string) (l net.PacketConn, err error) {
 	return NewReusablePortPacketConn(proto, addr)
+}
+
+// ListenPacketWithBuffer is an alias for NewReusablePortPacketConnWithBuffer.
+func ListenPacketWithBuffer(proto, addr string, readBuffer int, writeBuffer int) (l net.PacketConn, err error) {
+	return NewReusablePortPacketConnWithBuffer(proto, addr, readBuffer, writeBuffer)
 }
