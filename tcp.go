@@ -143,7 +143,6 @@ func NewReusablePortListener(proto, addr string) (l net.Listener, err error) {
 	return l, err
 }
 
-
 // NewReusablePortListenerWithBuffer returns net.FileListener that created from
 // a file discriptor for a socket with SO_REUSEPORT option and read/write buffers sizes.
 func NewReusablePortListenerWithBuffer(proto, addr string, readBufferSize int, writeBufferSize int) (l net.Listener, err error) {

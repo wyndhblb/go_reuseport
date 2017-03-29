@@ -138,7 +138,6 @@ func NewReusablePortPacketConn(proto, addr string) (l net.PacketConn, err error)
 	return l, err
 }
 
-
 // NewReusablePortPacketConnWithBuffer returns net.FilePacketConn that created from
 // a file descriptor for a socket with SO_REUSEPORT option as well as the buffer size set
 func NewReusablePortPacketConnWithBuffer(proto, addr string, readBufferSize int, writeBufferSize int) (l net.PacketConn, err error) {
@@ -188,7 +187,6 @@ func NewReusablePortPacketConnWithBuffer(proto, addr string, readBufferSize int,
 			return nil, err
 		}
 	}
-
 
 	if err = syscall.Bind(fd, sockaddr); err != nil {
 		return nil, err
